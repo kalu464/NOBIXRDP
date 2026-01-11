@@ -1,0 +1,75 @@
+name: NOBIXRDP
+on:
+  workflow_dispatch:
+    inputs:
+      ts_authkey:
+        description: "Tailscale Auth Key (tskey-auth-XXXX)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nobixrdp-single-session
+  cancel-in-progress: false
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    timeout-minutes: 3600   # EXACT 5 HOURS
+
+    env:
+      # ===== RDP CREDENTIALS =====
+      RDP_USER: NOBIXRDP
+      RDP_PASS: Kirat@1906Z
+
+      # ===== FIXED TAILSCALE NAME =====
+      TS_HOSTNAME: NOBIXRDP
+
+    steps:
+
+      - name: Install and start Tailscale
+        run: |
+          $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+
+          if (-not (Test-Path $exe)) {
+            Invoke-WebRequest `
+              -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" `
+              -OutFile "$env:TEMP\tailscale.msi"
+
+            Start-Process msiexec.exe -Wait `
+              -ArgumentList "/i","$env:TEMP\tailscale.msi","/quiet","/norestart"
+          }
+
+          & $exe logout | Out-Null
+          & $exe up `
+            --authkey "${{ inputs.ts_authkey }}" `
+            --hostname "$env:TS_HOSTNAME" `
+            --accept-dns=false `
+            --reset
+
+      - name: Show Tailscale IP (NOBIXRDP)
+        run: |
+          $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $ip = & $exe ip -4 | Select-Object -First 1
+
+          Write-Host ""
+          Write-Host "================================="
+          Write-Host " RDP NAME : NOBIXRDP"
+          Write-Host " RDP IP   : $ip"
+          Write-Host " USER     : NOBIXRDP"
+          Write-Host "================================="
+
+      - name: Enable RDP
+        run: |
+          $sec = ConvertTo-SecureString $env:RDP_PASS -AsPlainText -Force
+
+          if (-not (Get-LocalUser -Name $env:RDP_USER -ErrorAction SilentlyContinue)) {
+            New-LocalUser -Name $env:RDP_USER -Password $sec -AccountNeverExpires
+            Add-LocalGroupMember Administrators $env:RDP_USER
+            Add-LocalGroupMember "Remote Desktop Users" $env:RDP_USER
+          } else {
+            Set-LocalUser -Name $env:RDP_USER -Password $sec
+            Enable-LocalUser $env:RDP_USER
+          }
