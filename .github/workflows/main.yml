@@ -58,7 +58,7 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "NOBIXRDP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "NOBIXRDP"
 
-          echo "RDP_USER=RDP" >> $env:GITHUB_ENV
+          echo "RDP_USER=NOBIXRDP" >> $env:GITHUB_ENV
           echo "RDP_PASS=$password" >> $env:GITHUB_ENV
 
       # ------------------------------------------------------------
